@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angle Construction Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Mukta:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Mukta', 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            overflow: hidden; /* Prevent body scroll to focus on app area */
+        }
+
+        .app-shell {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+        .canvas-container {
+            position: relative;
+            flex-grow: 1;
+            background: #ffffff;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 30px 30px;
+            border-radius: 24px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.05), 0 20px 25px -5px rgba(0,0,0,0.1);
+            border: 2px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .floating-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 240px;
+        }
+
+        .floating-footer {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 0.75rem 2rem;
+            border-radius: 9999px;
+            color: white;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+
+        .step-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            font-weight: 700;
+            z-index: 10;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-weight: 700;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            border-color: #2563eb;
+            background: white;
+        }
+
+        .btn-next {
+            background: #2563eb;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 10px;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .btn-next:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-reset {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 0.5rem;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="mb-4 flex justify-between items-end px-2">
+            <div>
+                <h1 class="text-2xl font-extrabold text-slate-800">प्रोट्रयाक्टर र रूलरको प्रयोग</h1>
+                <p class="text-slate-500 text-sm">कोण रचना अभ्यास</p>
+            </div>
+            <div class="flex items-center gap-3 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <span id="angle-type-badge" class="w-3 h-3 rounded-full animate-pulse"></span>
+                <span id="angle-type-text" class="text-sm font-bold text-slate-700">न्युनकोण</span>
+            </div>
+        </header>
+
+        <div class="canvas-container" id="container">
+            <!-- UI Overlays within simulation area -->
+            <div class="floating-controls">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">कोणको नाम</label>
+                    <input type="text" id="name-input" maxlength="15" value="ABC">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">कोणको नाप (°)</label>
+                    <input type="number" id="angle-input" min="1" max="180" value="60">
+                </div>
+                <div class="flex flex-col gap-2 mt-2">
+                    <button id="next-btn" class="btn-next">अर्को चरण →</button>
+                    <button id="reset-btn" class="btn-reset">पुन: सुरु गर्नुहोस्</button>
+                </div>
+            </div>
+
+            <div class="step-indicator" id="step-number">
+                चरण १/६
+            </div>
+
+            <div class="floating-footer">
+                <span id="step-instruction" class="text-sm font-semibold opacity-90">
+                    आधार रेखा खिच्नुहोस्
+                </span>
+            </div>
+
+            <canvas id="simulationCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const angleInput = document.getElementById('angle-input');
+        const nameInput = document.getElementById('name-input');
+        const nextBtn = document.getElementById('next-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const stepInstruction = document.getElementById('step-instruction');
+        const stepNumber = document.getElementById('step-number');
+        
+        let currentStep = 1;
+        let targetAngle = 60;
+        let angleName = "ABC";
+        let origin = { x: 0, y: 0 };
+        const radius = 175;
+        const lineLen = 240;
+
+        let animProgress = 0;
+        let animStartTime = 0;
+
+        const nepaliSteps = [
+            "आधार रेखा खिच्नुहोस् (रूलरको प्रयोग गरी)",
+            "प्रोट्रयाक्टरलाई मिलाएर राख्नुहोस्",
+            "चाहिएको कोणमा चिन्ह लगाउनुहोस्",
+            "प्रोट्रयाक्टर हटाउनुहोस्",
+            "रेखा खिचेर कोण पूरा गर्नुहोस् (रूलरको प्रयोग गरी)",
+            "रचना सम्पन्न भयो!"
+        ];
+
+        function initCanvas() {
+            const container = document.getElementById('container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            // Center construction more in the managed area
+            origin = { x: canvas.width * 0.45, y: canvas.height * 0.7 };
+            startStepAnimation();
+        }
+
+        function getLabels() {
+            const clean = angleName.replace(/[^a-zA-Z]/g, '');
+            return {
+                a: clean[0] || 'A',
+                vertex: clean[1] || 'B',
+                c: clean[2] || 'C'
+            };
+        }
+
+        function drawRuler(x, y, angleRad, length = 350, opacity = 1) {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.translate(x, y);
+            ctx.rotate(angleRad);
+            
+            const rulerHeight = 40;
+            const grad = ctx.createLinearGradient(0, 0, 0, rulerHeight);
+            grad.addColorStop(0, '#fde68a');
+            grad.addColorStop(0.5, '#fcd34d');
+            grad.addColorStop(1, '#fbbf24');
+            
+            ctx.fillStyle = grad;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(-30, 0, length, rulerHeight);
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 1;
+            for (let i = -20; i < length - 30; i += 10) {
+                let h = (i + 20) % 50 === 0 ? 15 : ((i + 20) % 25 === 0 ? 10 : 6);
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, h);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawProtractor(posX, posY, opacity = 1) {
+            ctx.save();
+            ctx.translate(posX, posY);
+            ctx.globalAlpha = opacity;
+            
+            const grad = ctx.createRadialGradient(0, 0, radius * 0.5, 0, 0, radius + 25);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+            grad.addColorStop(1, 'rgba(235, 245, 255, 0.7)');
+
+            ctx.beginPath();
+            ctx.arc(0, 0, radius + 25, Math.PI, 0);
+            ctx.lineTo(radius + 25, 0);
+            ctx.lineTo(-(radius + 25), 0);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(-(radius + 25), 0);
+            ctx.lineTo(radius + 25, 0);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, -10);
+            ctx.lineTo(0, 10);
+            ctx.moveTo(-10, 0);
+            ctx.lineTo(10, 0);
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            for (let i = 0; i <= 180; i += 2) {
+                const r = (i * Math.PI) / 180;
+                let h = (i % 10 === 0) ? 18 : ((i % 5 === 0) ? 12 : 7);
+                const x1 = -Math.cos(r) * radius;
+                const y1 = -Math.sin(r) * radius;
+                const x2 = -Math.cos(r) * (radius - h);
+                const y2 = -Math.sin(r) * (radius - h);
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = (i % 10 === 0) ? '#1e293b' : '#94a3b8';
+                ctx.lineWidth = (i % 10 === 0) ? 1.5 : 1;
+                ctx.stroke();
+                
+                if (i % 10 === 0) {
+                    ctx.font = 'bold 11px Inter';
+                    ctx.fillStyle = '#1e293b';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(i, -Math.cos(r) * (radius - 30), -Math.sin(r) * (radius - 30) + 5);
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawMeasurementBox(x, y, angle) {
+            const boxWidth = 50;
+            const boxHeight = 25;
+            ctx.save();
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(0,0,0,0.15)';
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.roundRect(x - boxWidth/2, y - 45, boxWidth, boxHeight, 6);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x - 5, y - 20);
+            ctx.lineTo(x + 5, y - 20);
+            ctx.lineTo(x, y - 12);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.round(angle) + '°', x, y - 28);
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const targetRad = (targetAngle * Math.PI) / 180;
+            const labels = getLabels();
+
+            // Persistent Base Ray
+            if (currentStep >= 1) {
+                const drawX = (currentStep === 1) ? origin.x + (lineLen * animProgress) : origin.x + lineLen;
+                ctx.beginPath();
+                ctx.moveTo(origin.x, origin.y);
+                ctx.lineTo(drawX, origin.y);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.font = 'italic bold 24px Mukta';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(labels.vertex, origin.x - 25, origin.y + 30);
+                if (currentStep > 1 || (currentStep === 1 && animProgress > 0.9)) {
+                   ctx.fillText(labels.c, origin.x + lineLen + 15, origin.y + 30);
+                }
+
+                if (currentStep === 1) drawRuler(origin.x, origin.y, 0, 350);
+            }
+
+            // Step 2: Align Protractor
+            if (currentStep === 2) {
+                const startY = origin.y - 120;
+                const curY = startY + (origin.y - startY) * animProgress;
+                drawProtractor(origin.x, curY, animProgress);
+            } 
+            
+            // Step 3: Mark Point A
+            else if (currentStep === 3) {
+                drawProtractor(origin.x, origin.y, 1);
+                
+                const curAngle = targetAngle * animProgress;
+                const curRad = (curAngle * Math.PI) / 180;
+                const ax = origin.x + Math.cos(-curRad) * radius;
+                const ay = origin.y + Math.sin(-curRad) * radius;
+                
+                drawMeasurementBox(ax, ay, curAngle);
+
+                ctx.beginPath();
+                ctx.arc(ax, ay, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#dc2626';
+                ctx.fill();
+                
+                ctx.font = 'italic bold 24px Mukta';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(labels.a, ax - 5, ay - 65);
+            }
+
+            // Step 4: Remove Protractor
+            else if (currentStep === 4) {
+                const ax = origin.x + Math.cos(-targetRad) * radius;
+                const ay = origin.y + Math.sin(-targetRad) * radius;
+                
+                const liftDist = 150 * animProgress;
+                drawProtractor(origin.x, origin.y - liftDist, 1 - animProgress);
+
+                ctx.beginPath();
+                ctx.arc(ax, ay, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#dc2626';
+                ctx.fill();
+                ctx.font = 'italic bold 24px Mukta';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(labels.a, ax - 5, ay - 25);
+            }
+
+            // Step 5: Join with Ruler
+            if (currentStep === 5) {
+                const ax = origin.x + Math.cos(-targetRad) * radius;
+                const ay = origin.y + Math.sin(-targetRad) * radius;
+                
+                ctx.beginPath();
+                ctx.arc(ax, ay, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#dc2626';
+                ctx.fill();
+                ctx.font = 'italic bold 24px Mukta';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(labels.a, ax - 5, ay - 25);
+
+                const pauseRatio = 0.25; 
+                if (animProgress > pauseRatio) {
+                    const drawRatio = (animProgress - pauseRatio) / (1 - pauseRatio);
+                    const curLen = (lineLen + 40) * drawRatio;
+                    
+                    drawRuler(origin.x, origin.y, -targetRad, 350, 1);
+
+                    ctx.beginPath();
+                    ctx.moveTo(origin.x, origin.y);
+                    ctx.lineTo(origin.x + Math.cos(-targetRad) * curLen, origin.y + Math.sin(-targetRad) * curLen);
+                    ctx.strokeStyle = '#2563eb';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            }
+
+            // Step 6: Final View
+            if (currentStep === 6) {
+                const ax = origin.x + Math.cos(-targetRad) * radius;
+                const ay = origin.y + Math.sin(-targetRad) * radius;
+                
+                ctx.beginPath();
+                ctx.arc(ax, ay, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#dc2626';
+                ctx.fill();
+                ctx.font = 'italic bold 24px Mukta';
+                ctx.fillStyle = '#1e293b';
+                ctx.fillText(labels.a, ax - 5, ay - 25);
+
+                ctx.beginPath();
+                ctx.moveTo(origin.x, origin.y);
+                ctx.lineTo(origin.x + Math.cos(-targetRad) * (lineLen + 40), origin.y + Math.sin(-targetRad) * (lineLen + 40));
+                ctx.strokeStyle = '#2563eb';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.globalAlpha = animProgress;
+                ctx.font = '800 20px Mukta';
+                ctx.fillStyle = '#2563eb';
+                ctx.fillText(`${targetAngle}°`, origin.x + 60, origin.y - 30);
+                
+                ctx.font = 'bold 18px Mukta';
+                ctx.fillStyle = '#64748b';
+                ctx.fillText(`∠${angleName}`, origin.x, origin.y + 65);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function animate(timestamp) {
+            if (!animStartTime) animStartTime = timestamp;
+            let duration = 2000;
+            if (currentStep === 3) duration = 3000;
+            if (currentStep >= 5) duration = 2500;
+            
+            animProgress = Math.min((timestamp - animStartTime) / duration, 1);
+            draw();
+            if (animProgress < 1) requestAnimationFrame(animate);
+        }
+
+        function startStepAnimation() {
+            animProgress = 0;
+            animStartTime = 0;
+            requestAnimationFrame(animate);
+        }
+
+        function updateStepsUI() {
+            nextBtn.innerText = currentStep === 6 ? "पुन: सुरु गर्नुहोस्" : "अर्को चरण →";
+            stepInstruction.innerText = nepaliSteps[currentStep - 1];
+            stepNumber.innerText = `चरण ${currentStep}/६`;
+            
+            let labelText = "";
+            let badgeColor = "";
+            if (targetAngle < 90) {
+                labelText = "न्युनकोण";
+                badgeColor = "#2563eb";
+            } else if (targetAngle == 90) {
+                labelText = "समकोण";
+                badgeColor = "#16a34a";
+            } else {
+                labelText = "अधिककोण";
+                badgeColor = "#ea580c";
+            }
+            
+            document.getElementById('angle-type-text').innerText = labelText;
+            document.getElementById('angle-type-badge').style.backgroundColor = badgeColor;
+        }
+
+        nextBtn.addEventListener('click', () => {
+            currentStep = currentStep < 6 ? currentStep + 1 : 1;
+            startStepAnimation();
+            updateStepsUI();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            currentStep = 1;
+            startStepAnimation();
+            updateStepsUI();
+        });
+
+        angleInput.addEventListener('input', (e) => {
+            targetAngle = Math.max(1, Math.min(180, parseInt(e.target.value) || 60));
+            if (currentStep >= 3) startStepAnimation();
+            else draw();
+            updateStepsUI();
+        });
+
+        nameInput.addEventListener('input', (e) => {
+            angleName = e.target.value || "ABC";
+            draw();
+        });
+
+        window.addEventListener('resize', initCanvas);
+        window.onload = initCanvas;
+    </script>
+</body>
+</html>
